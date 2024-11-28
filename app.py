@@ -51,37 +51,66 @@ def main():
         original_text = uploaded_file.getvalue().decode("utf-8")
         st.subheader("原文 (Original):")
         st.write(original_text)
+
+        # 用来控制计时
+        if 'start_time' not in st.session_state:
+            st.session_state.start_time = 0  # 初始值
+
+        if 'elapsed_time' not in st.session_state:
+            st.session_state.elapsed_time = 0  # 初始值
+
+        # 用于开始写的按钮
+        start_button = st.button("开始写")
         
+        if start_button:
+            # 用户点击“开始写”按钮后开始计时
+            st.session_state.start_time = time.time()  # 记录开始时间
+            st.session_state.elapsed_time = 0  # 重置已用时间
+            st.subheader("请开始输入 Duplicate:")
+        
+        # 每秒钟更新时间
+        if st.session_state.start_time > 0:
+            # 显示秒表
+            elapsed = time.time() - st.session_state.start_time
+            st.session_state.elapsed_time = elapsed
+            st.text(f"秒表: {st.session_state.elapsed_time:.2f} 秒")
+
         # 用户输入的句子
-        st.subheader("请在下方输入 Duplicate:")
         user_input = st.text_area("请输入英文句子：")
         
-        # 输入按钮
-        if st.button("提交输入"):
-            start_time = time.time()  # 开始计时
-            
-            # 对比用户输入与原文
-            accuracy, word_results = compare_sentences(original_text, user_input)
-            score = accuracy * 100  # 转换为百分比
-            end_time = time.time()  # 结束计时
-            input_time = end_time - start_time  # 计算输入所需的时间
+        # 提交按钮
+        submit_button = st.button("提交输入")
+        
+        if submit_button:
+            if user_input.strip():  # 如果用户输入不为空
+                end_time = time.time()  # 结束计时
+                input_time = end_time - st.session_state.start_time  # 计算输入所需的时间
+                
+                # 对比用户输入与原文
+                accuracy, word_results = compare_sentences(original_text, user_input)
+                score = accuracy * 100  # 转换为百分比
 
-            # 显示正确率和逐词结果
-            st.subheader(f"输入正确率: {score:.2f}%")
-            display_comparison_results(word_results)
+                # 显示正确率和逐词结果
+                st.subheader(f"输入正确率: {score:.2f}%")
+                display_comparison_results(word_results)
 
-            # 显示输入时间和速度
-            wpm = len(user_input.split()) / (input_time / 60) if input_time > 0 else 0
-            st.subheader(f"输入时间: {input_time:.2f} 秒")
-            st.subheader(f"输入速度: {wpm:.2f} 字/分钟")
+                # 显示输入时间和速度
+                if input_time > 0:  # 确保输入时间大于 0
+                    wpm = len(user_input.split()) / (input_time / 60)  # 字/分钟
+                    st.subheader(f"输入时间: {input_time:.2f} 秒")
+                    st.subheader(f"输入速度: {wpm:.2f} 字/分钟")
+                else:
+                    st.subheader("输入时间过短，无法计算速度。")
 
-            # 显示反馈
-            if accuracy == 1.0:
-                st.success("完全正确！")
-            elif accuracy > 0.8:
-                st.warning("非常接近，稍有错误。")
+                # 显示反馈
+                if accuracy == 1.0:
+                    st.success("完全正确！")
+                elif accuracy > 0.8:
+                    st.warning("非常接近，稍有错误。")
+                else:
+                    st.error("输入有较大偏差，请重新检查。")
             else:
-                st.error("输入有较大偏差，请重新检查。")
+                st.warning("请输入内容后再点击提交！")
 
 if __name__ == "__main__":
     main()
