@@ -1,5 +1,6 @@
 import streamlit as st
 import time
+import re
 
 # 读取TXT文件的内容，返回原文
 def read_txt_file(file_path):
@@ -12,6 +13,7 @@ def compare_sentences(original, duplicate):
     duplicate_words = duplicate.split()
     correct_count = 0
     incorrect_count = 0
+    missing_count = 0
     word_results = []
 
     # 逐词比较
@@ -23,14 +25,12 @@ def compare_sentences(original, duplicate):
             word_results.append(('incorrect', orig_word))
             incorrect_count += 1
         else:
-            # 用户未写的单词
-            word_results.append(('missing', orig_word))
-            incorrect_count += 1
+            word_results.append(('missing', orig_word))  # 未写的内容
+            missing_count += 1
 
     # 计算准确率和错误率
     accuracy = correct_count / len(original_words) if len(original_words) > 0 else 0
-    error_rate = incorrect_count / len(original_words) if len(original_words) > 0 else 0
-    return accuracy, error_rate, word_results
+    return accuracy, word_results, correct_count, incorrect_count, missing_count
 
 # 显示逐词对比的结果
 def display_comparison_results(word_results):
@@ -46,8 +46,19 @@ def display_comparison_results(word_results):
 
     st.markdown(display_text, unsafe_allow_html=True)
 
+# 计算有效单词数（忽略标点符号和空格）
+def count_words(text):
+    words = re.findall(r'\b\w+\b', text)  # 使用正则表达式忽略标点符号
+    return len(words)
+
 # Streamlit 界面部分
 def main():
+    # 初始化session_state
+    if 'is_started' not in st.session_state:
+        st.session_state.is_started = False
+    if 'is_submitted' not in st.session_state:
+        st.session_state.is_submitted = False
+
     # 标题
     st.title("英文句子输入正确率检测")
 
@@ -60,60 +71,38 @@ def main():
         original_text = uploaded_file.getvalue().decode("utf-8")
         st.subheader("原文 (Original):")
         st.write(original_text)
-
-        # 用来控制计时
-        if 'start_time' not in st.session_state:
-            st.session_state.start_time = 0  # 初始值
-
-        if 'elapsed_time' not in st.session_state:
-            st.session_state.elapsed_time = 0  # 初始值
-
-        # 用于开始写的按钮
-        start_button = st.button("开始写")
         
-        if start_button:
-            # 用户点击“开始写”按钮后开始计时
-            st.session_state.start_time = time.time()  # 记录开始时间
-            st.session_state.elapsed_time = 0  # 重置已用时间
-            st.subheader("请开始输入 Duplicate:")
-        
-        # 每秒钟更新时间
-        if st.session_state.start_time > 0:
-            # 显示秒表
-            elapsed = time.time() - st.session_state.start_time
-            st.session_state.elapsed_time = elapsed
-            # st.text(f"秒表: <span style='font-size: 30px; color: black;'>{st.session_state.elapsed_time:.2f} 秒</span>", unsafe_allow_html=True)
-            st.markdown(f"秒表: <span style='font-size: 30px; color: black;'>{st.session_state.elapsed_time:.2f} 秒</span>", unsafe_allow_html=True)
-
+        # 显示“开始记录”按钮
+        if not st.session_state.is_started:
+            if st.button("开始记录"):
+                st.session_state.is_started = True  # 开始记录后，显示输入框
+                st.session_state.start_time = time.time()  # 记录开始时间
 
         # 用户输入的句子
-        user_input = st.text_area("请输入英文句子：", height=150)
-        
-        # 提交按钮
-        submit_button = st.button("提交输入")
-        
-        if submit_button:
-            if user_input.strip():  # 如果用户输入不为空
+        if st.session_state.is_started and not st.session_state.is_submitted:  # 只有在点击开始记录后显示输入框
+            st.subheader("请在下方输入 Duplicate:")
+            user_input = st.text_area("请输入英文句子：", disabled=st.session_state.is_submitted)  # 禁用输入框（提交后）
+
+            # 提交按钮
+            if st.button("提交输入", disabled=st.session_state.is_submitted):
                 end_time = time.time()  # 结束计时
                 input_time = end_time - st.session_state.start_time  # 计算输入所需的时间
-                
-                # 对比用户输入与原文
-                accuracy, error_rate, word_results = compare_sentences(original_text, user_input)
-                score = accuracy * 100  # 转换为百分比
-                error_percentage = error_rate * 100  # 错误率百分比
 
-                # 显示正确率、错误率和逐词结果
+                # 对比用户输入与原文
+                accuracy, word_results, correct_count, incorrect_count, missing_count = compare_sentences(original_text, user_input)
+                score = accuracy * 100  # 转换为百分比
+
+                # 显示正确率和逐词结果
                 st.subheader(f"输入正确率: {score:.2f}%")
-                st.subheader(f"输入错误率: {error_percentage:.2f}%")
                 display_comparison_results(word_results)
 
+                # 计算有效单词数
+                valid_word_count = count_words(user_input)
+
                 # 显示输入时间和速度
-                if input_time > 0:  # 确保输入时间大于 0
-                    wpm = len(user_input.split()) / (input_time / 60)  # 字/分钟
-                    st.subheader(f"输入时间: {input_time:.2f} 秒")
-                    st.subheader(f"输入速度: {wpm:.2f} 字/分钟")
-                else:
-                    st.subheader("输入时间过短，无法计算速度。")
+                wpm = valid_word_count / (input_time / 60) if input_time > 0 else 0
+                st.subheader(f"输入时间: {input_time:.2f} 秒")
+                st.subheader(f"输入速度: {wpm:.2f} 字/分钟")
 
                 # 显示反馈
                 if accuracy == 1.0:
@@ -122,8 +111,22 @@ def main():
                     st.warning("非常接近，稍有错误。")
                 else:
                     st.error("输入有较大偏差，请重新检查。")
-            else:
-                st.warning("请输入内容后再点击提交！")
+
+                # 显示错误统计
+                st.subheader(f"正确的单词数: {correct_count}")
+                st.subheader(f"错误的单词数: {incorrect_count}")
+                st.subheader(f"未输入的单词数: {missing_count}")
+
+                # 设置已提交标记
+                st.session_state.is_submitted = True
+
+            # 启动计时
+            if st.session_state.is_started and not st.session_state.is_submitted:
+                st.session_state.start_time = time.time()  # 记录开始时间
+
+        # 提示：如果需要重新记录，刷新页面即可
+        if st.session_state.is_submitted:
+            st.info("如果需要重新记录，刷新页面即可。")
 
 if __name__ == "__main__":
     main()
