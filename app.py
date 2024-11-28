@@ -11,19 +11,26 @@ def compare_sentences(original, duplicate):
     original_words = original.split()
     duplicate_words = duplicate.split()
     correct_count = 0
+    incorrect_count = 0
     word_results = []
 
     # 逐词比较
-    for orig_word, dup_word in zip(original_words, duplicate_words):
-        if orig_word.lower() == dup_word.lower():
+    for i, orig_word in enumerate(original_words):
+        if i < len(duplicate_words) and orig_word.lower() == duplicate_words[i].lower():
             word_results.append(('correct', orig_word))
             correct_count += 1
-        else:
+        elif i < len(duplicate_words) and orig_word.lower() != duplicate_words[i].lower():
             word_results.append(('incorrect', orig_word))
+            incorrect_count += 1
+        else:
+            # 用户未写的单词
+            word_results.append(('missing', orig_word))
+            incorrect_count += 1
 
-    # 计算准确率
+    # 计算准确率和错误率
     accuracy = correct_count / len(original_words) if len(original_words) > 0 else 0
-    return accuracy, word_results
+    error_rate = incorrect_count / len(original_words) if len(original_words) > 0 else 0
+    return accuracy, error_rate, word_results
 
 # 显示逐词对比的结果
 def display_comparison_results(word_results):
@@ -31,10 +38,12 @@ def display_comparison_results(word_results):
     display_text = ""
     for status, word in word_results:
         if status == 'correct':
-            display_text += f'<span style="color: green;">{word}</span> '
-        else:
-            display_text += f'<span style="color: red;">{word}</span> '
-    
+            display_text += f'<span style="color: green; font-size: 20px;">{word}</span> '
+        elif status == 'incorrect':
+            display_text += f'<span style="color: red; font-size: 20px;">{word}</span> '
+        else:  # missing word
+            display_text += f'<span style="color: gray; font-size: 20px;">{word}</span> '
+
     st.markdown(display_text, unsafe_allow_html=True)
 
 # Streamlit 界面部分
@@ -73,10 +82,12 @@ def main():
             # 显示秒表
             elapsed = time.time() - st.session_state.start_time
             st.session_state.elapsed_time = elapsed
-            st.text(f"秒表: {st.session_state.elapsed_time:.2f} 秒")
+            # st.text(f"秒表: <span style='font-size: 30px; color: black;'>{st.session_state.elapsed_time:.2f} 秒</span>", unsafe_allow_html=True)
+            st.markdown(f"秒表: <span style='font-size: 30px; color: black;'>{st.session_state.elapsed_time:.2f} 秒</span>", unsafe_allow_html=True)
+
 
         # 用户输入的句子
-        user_input = st.text_area("请输入英文句子：")
+        user_input = st.text_area("请输入英文句子：", height=150)
         
         # 提交按钮
         submit_button = st.button("提交输入")
@@ -87,11 +98,13 @@ def main():
                 input_time = end_time - st.session_state.start_time  # 计算输入所需的时间
                 
                 # 对比用户输入与原文
-                accuracy, word_results = compare_sentences(original_text, user_input)
+                accuracy, error_rate, word_results = compare_sentences(original_text, user_input)
                 score = accuracy * 100  # 转换为百分比
+                error_percentage = error_rate * 100  # 错误率百分比
 
-                # 显示正确率和逐词结果
+                # 显示正确率、错误率和逐词结果
                 st.subheader(f"输入正确率: {score:.2f}%")
+                st.subheader(f"输入错误率: {error_percentage:.2f}%")
                 display_comparison_results(word_results)
 
                 # 显示输入时间和速度
