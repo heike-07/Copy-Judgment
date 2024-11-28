@@ -48,6 +48,7 @@ def display_comparison_results(word_results):
 def main():
     # 标题
     st.title("英文句子输入正确率检测")
+    st.write("@ 作者(Author)：heike07 & ChatGpt4o")
 
     # 上传文件
     st.header("上传文件 (TXT 格式)")
@@ -70,7 +71,7 @@ def main():
             st.session_state.start_time = 0  # 初始时间
 
         # 开始记录按钮
-        start_button = st.button("开始记录", disabled=st.session_state.is_recording or st.session_state.is_submitted)
+        start_button = st.button("开始写", disabled=st.session_state.is_recording or st.session_state.is_submitted)
         if start_button:
             st.session_state.is_recording = True  # 开始记录，按钮置灰
             st.session_state.is_submitted = False  # 确保点击开始记录后可以提交
@@ -81,7 +82,7 @@ def main():
         user_input = st.text_area("请输入英文句子：", disabled=not st.session_state.is_recording)
         
         # 提交按钮
-        submit_button = st.button("提交输入", disabled=not st.session_state.is_recording or st.session_state.is_submitted)
+        submit_button = st.button("我写好了", disabled=not st.session_state.is_recording or st.session_state.is_submitted)
         
         if submit_button:
             # 计算输入所需的时间
@@ -99,7 +100,7 @@ def main():
             words_count = len(user_input.split())
             wpm = words_count / (input_time / 60) if input_time > 0 else 0  # 词/分钟
             st.subheader(f"输入时间: {input_time:.2f} 秒")
-            st.subheader(f"输入速度: {wpm:.2f} 字/分钟")
+            st.subheader(f"输入速度: {wpm:.2f} 字符/分钟")
 
             # 显示反馈
             if accuracy == 1.0:
